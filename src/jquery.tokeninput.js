@@ -11,7 +11,7 @@
 (function ($) {
 // Default settings
 var DEFAULT_SETTINGS = {
-    // Search settings
+	// Search settings
 	method: "GET",
 	contentType: "json",
 	queryParam: "q",
@@ -98,7 +98,6 @@ var KEY = {
 var methods = {
 	init: function(url_or_data_or_function, options) {
 		var settings = $.extend({}, DEFAULT_SETTINGS, options || {});
-
 		return this.each(function () {
 			$(this).data("tokenInputObject", new $.TokenList(this, url_or_data_or_function, settings));
 		});
@@ -135,7 +134,6 @@ $.TokenList = function (input, url_or_data, settings) {
 	//
 	// Initialization
 	//
-
 	// Configure the data source
 	if($.type(url_or_data) === "string" || $.type(url_or_data) === "function") {
 		// Set the url to query against
@@ -185,113 +183,122 @@ $.TokenList = function (input, url_or_data, settings) {
 	var timeout;
 	var input_val;
 
-	// Create a new text input an attach keyup events
-	var input_box = $("<input type=\"text\"  autocomplete=\"off\">")
-		.css({
-			outline: "none"
-		})
-		.attr("id", settings.idPrefix + input.id)
-		.focus(function () {
-			if (settings.tokenLimit === null || settings.tokenLimit !== token_count) {
-				show_el_hint(dropdown);
-			}
-		})
-		.blur(function () {
-			hide_els();
-			$(this).val("");
-		})
-		.bind("keyup keydown blur update", resize_input)
-		.keydown(function (event) {
-			var previous_token;
-			var next_token;
+	// Create a new text input and attach keyup events
+	var input_box;
+	if (!settings.readonly) {
+		input_box = $("<input type=\"text\"  autocomplete=\"off\">")
+			.css({
+				outline: "none"
+			})
+			.attr("id", settings.idPrefix + input.id)
+			.focus(function () {
+				if (settings.tokenLimit === null || settings.tokenLimit !== token_count) {
+					show_el_hint(dropdown);
+				}
+			})
+			.blur(function () {
+				hide_els();
+				$(this).val("");
+			})
+			.bind("keyup keydown blur update", resize_input)
+			.keydown(function (event) {
+				var previous_token;
+				var next_token;
 
-			switch(event.keyCode) {
-				case KEY.LEFT:
-				case KEY.RIGHT:
-				case KEY.UP:
-				case KEY.DOWN:
-					if(!$(this).val()) {
-						previous_token = input_token.prev();
-						next_token = input_token.next();
+				switch(event.keyCode) {
+					case KEY.LEFT:
+					case KEY.RIGHT:
+					case KEY.UP:
+					case KEY.DOWN:
+						if(!$(this).val()) {
+							previous_token = input_token.prev();
+							next_token = input_token.next();
 
-						if((previous_token.length && previous_token.get(0) === selected_token) || (next_token.length && next_token.get(0) === selected_token)) {
-							// Check if there is a previous/next token and it is selected
-							if(event.keyCode === KEY.LEFT || event.keyCode === KEY.UP) {
-								deselect_token($(selected_token), POSITION.BEFORE);
-							} else {
-								deselect_token($(selected_token), POSITION.AFTER);
+							if((previous_token.length && previous_token.get(0) === selected_token) || (next_token.length && next_token.get(0) === selected_token)) {
+								// Check if there is a previous/next token and it is selected
+								if(event.keyCode === KEY.LEFT || event.keyCode === KEY.UP) {
+									deselect_token($(selected_token), POSITION.BEFORE);
+								} else {
+									deselect_token($(selected_token), POSITION.AFTER);
+								}
+							} else if((event.keyCode === KEY.LEFT || event.keyCode === KEY.UP) && previous_token.length) {
+								// We are moving left, select the previous token if it exists
+								select_token($(previous_token.get(0)));
+							} else if((event.keyCode === KEY.RIGHT || event.keyCode === KEY.DOWN) && next_token.length) {
+								// We are moving right, select the next token if it exists
+								select_token($(next_token.get(0)));
 							}
-						} else if((event.keyCode === KEY.LEFT || event.keyCode === KEY.UP) && previous_token.length) {
-							// We are moving left, select the previous token if it exists
-							select_token($(previous_token.get(0)));
-						} else if((event.keyCode === KEY.RIGHT || event.keyCode === KEY.DOWN) && next_token.length) {
-							// We are moving right, select the next token if it exists
-							select_token($(next_token.get(0)));
-						}
-					} else {
-						var dropdown_item = null;
-
-						if(event.keyCode === KEY.DOWN || event.keyCode === KEY.RIGHT) {
-							dropdown_item = $(selected_dropdown_item).next();
 						} else {
-							dropdown_item = $(selected_dropdown_item).prev();
+							var dropdown_item = null;
+
+							if(event.keyCode === KEY.DOWN || event.keyCode === KEY.RIGHT) {
+								dropdown_item = $(selected_dropdown_item).next();
+							} else {
+								dropdown_item = $(selected_dropdown_item).prev();
+							}
+
+							if(dropdown_item.length) {
+								select_dropdown_item(dropdown_item);
+							}
+							return false;
 						}
+						break;
 
-						if(dropdown_item.length) {
-							select_dropdown_item(dropdown_item);
+					case KEY.BACKSPACE:
+						previous_token = input_token.prev();
+
+						if(!$(this).val().length) {
+							if(selected_token) {
+								delete_token($(selected_token));
+								hidden_input.change();
+							} else if(previous_token.length) {
+								select_token($(previous_token.get(0)));
+							}
+
+							return false;
+						} else if($(this).val().length === 1) {
+							hide_els();
+						} else {
+							// set a timeout just long enough to let this function finish.
+							setTimeout(function(){do_search();}, 5);
 						}
-						return false;
-					}
-					break;
+						break;
 
-				case KEY.BACKSPACE:
-					previous_token = input_token.prev();
+					case KEY.TAB:
+					case KEY.ENTER:
+					case KEY.NUMPAD_ENTER:
+					case KEY.COMMA:
+						//ELROY CUSTOM
+						var val = input_token.find('input').val();
 
-					if(!$(this).val().length) {
-						if(selected_token) {
-							delete_token($(selected_token));
+						if(selected_dropdown_item) {
+							add_token($(selected_dropdown_item).data("tokeninput"));
 							hidden_input.change();
-						} else if(previous_token.length) {
-							select_token($(previous_token.get(0)));
+							return false;
+						} else if(settings.allowNew && val.length) { //ELROY CUSTOM
+							add_token({id: val, name: val});
 						}
+						break;
 
-						return false;
-					} else if($(this).val().length === 1) {
+					case KEY.ESCAPE:
 						hide_els();
-					} else {
-						// set a timeout just long enough to let this function finish.
-						setTimeout(function(){do_search();}, 5);
-					}
-					break;
+						return true;
 
-				case KEY.TAB:
-				case KEY.ENTER:
-				case KEY.NUMPAD_ENTER:
-				case KEY.COMMA:
-					//ELROY CUSTOM
-					var val = input_token.find('input').val();
-
-					if(selected_dropdown_item) {
-						add_token($(selected_dropdown_item).data("tokeninput"));
-						hidden_input.change();
-						return false;
-					} else if(settings.allowNew && val.length) { //ELROY CUSTOM
-						add_token({id: val, name: val});
-					}
-					break;
-
-				case KEY.ESCAPE:
-					hide_els();
-					return true;
-
-				default:
-					if(String.fromCharCode(event.which)) {
-						// set a timeout just long enough to let this function finish.
-						setTimeout(function(){do_search();}, 5);
-					}
-					break;
-			}
-		});
+					default:
+						if(String.fromCharCode(event.which)) {
+							// set a timeout just long enough to let this function finish.
+							setTimeout(function(){do_search();}, 5);
+						}
+						break;
+				}
+			});
+	} else {
+		input_box = $("<input type=\"text\"  autocomplete=\"off\" disabled>")
+			.css({
+				display: "none"
+			})
+			.attr("id", settings.idPrefix + input.id);
+	}
 
 	// Keep a reference to the original input box
 	var hidden_input = $(input)
@@ -308,36 +315,41 @@ $.TokenList = function (input, url_or_data, settings) {
 	var selected_token = null;
 	var selected_token_index = 0;
 	var selected_dropdown_item = null;
+	var token_list;
 
-	// The list to store the token items in
-	var token_list = $("<ul />")
-		.addClass(settings.classes.tokenList)
-		.click(function (event) {
-			var li = $(event.target).closest("li");
-			if(li && li.get(0) && $.data(li.get(0), "tokeninput")) {
-				toggle_select_token(li);
-			} else {
-				// Deselect selected token
-				if(selected_token) {
-					deselect_token($(selected_token), POSITION.END);
+	if (!settings.readonly) {
+		// The list to store the token items in
+		token_list = $("<ul />")
+			.click(function (event) {
+				var li = $(event.target).closest("li");
+				if(li && li.get(0) && $.data(li.get(0), "tokeninput")) {
+					toggle_select_token(li);
+				} else {
+					// Deselect selected token
+					if(selected_token) {
+						deselect_token($(selected_token), POSITION.END);
+					}
+
+					// Focus input box
+					input_box.focus();
 				}
-
-				// Focus input box
-				input_box.focus();
-			}
-		})
-		.mouseover(function (event) {
-			var li = $(event.target).closest("li");
-			if(li && selected_token !== this) {
-				li.addClass(settings.classes.highlightedToken);
-			}
-		})
-		.mouseout(function (event) {
-			var li = $(event.target).closest("li");
-			if(li && selected_token !== this) {
-				li.removeClass(settings.classes.highlightedToken);
-			}
-		})
+			})
+			.mouseover(function (event) {
+				var li = $(event.target).closest("li");
+				if(li && selected_token !== this) {
+					li.addClass(settings.classes.highlightedToken);
+				}
+			})
+			.mouseout(function (event) {
+				var li = $(event.target).closest("li");
+				if(li && selected_token !== this) {
+					li.removeClass(settings.classes.highlightedToken);
+				}
+			});
+	} else {
+		token_list = $("<ul />").addClass('disabled');
+	}
+	token_list.addClass(settings.classes.tokenList)
 		.insertBefore(hidden_input);
 
 	// The token holding the input box
@@ -466,15 +478,17 @@ $.TokenList = function (input, url_or_data, settings) {
 			.addClass(settings.classes.token)
 			.insertBefore(input_token);
 
-		// The 'delete token' button
-		$("<span>" + settings.deleteText + "</span>")
-			.addClass(settings.classes.tokenDelete)
-			.appendTo(this_token)
-			.click(function () {
-				delete_token($(this).parent());
-				hidden_input.change();
-				return false;
-			});
+		if(!settings.readonly){
+			// The 'delete token' button
+			$("<span>" + settings.deleteText + "</span>")
+				.addClass(settings.classes.tokenDelete)
+				.appendTo(this_token)
+				.click(function () {
+					delete_token($(this).parent());
+					hidden_input.change();
+					return false;
+				});
+		}
 
 		// Store data on the token
 		var token_data = {"id": item.id};
